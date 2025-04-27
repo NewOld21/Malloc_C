@@ -15,7 +15,7 @@
 #include "config.h"
 
 /* private variables */
-static char *mem_start_brk;  /* points to first byte of heap */
+static char *mem_heap;  /* points to first byte of heap */
 static char *mem_brk;        /* points to last byte of heap */
 static char *mem_max_addr;   /* largest legal heap address */ 
 
@@ -25,13 +25,10 @@ static char *mem_max_addr;   /* largest legal heap address */
 void mem_init(void)
 {
     /* allocate the storage we will use to model the available VM */
-    if ((mem_start_brk = (char *)malloc(MAX_HEAP)) == NULL) {
-	fprintf(stderr, "mem_init_vm: malloc error\n");
-	exit(1);
-    }
+    mem_heap = (char *)malloc(MAX_HEAP);
 
-    mem_max_addr = mem_start_brk + MAX_HEAP;  /* max legal heap address */
-    mem_brk = mem_start_brk;                  /* heap is empty initially */
+    mem_brk = (char *)mem_heap;  /* max legal heap address */
+    mem_max_addr = (char *)(mem_heap + MAX_HEAP);                  /* heap is empty initially */
 }
 
 /* 
@@ -39,7 +36,7 @@ void mem_init(void)
  */
 void mem_deinit(void)
 {
-    free(mem_start_brk);
+    free(mem_heap);
 }
 
 /*
@@ -47,7 +44,7 @@ void mem_deinit(void)
  */
 void mem_reset_brk()
 {
-    mem_brk = mem_start_brk;
+    mem_brk = mem_heap;
 }
 
 /* 
@@ -73,7 +70,7 @@ void *mem_sbrk(int incr)
  */
 void *mem_heap_lo()
 {
-    return (void *)mem_start_brk;
+    return (void *)mem_heap;
 }
 
 /* 
@@ -89,7 +86,7 @@ void *mem_heap_hi()
  */
 size_t mem_heapsize() 
 {
-    return (size_t)(mem_brk - mem_start_brk);
+    return (size_t)(mem_brk - mem_heap);
 }
 
 /*
