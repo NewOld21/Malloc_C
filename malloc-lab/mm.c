@@ -55,9 +55,12 @@ static char *next_fit_ptr = NULL; // NEXT FIT 포인터
 static void *extend_heap(size_t size);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
+static void *rand_fit(size_t asize);
 static void place(void *bp, size_t asize);
 static void add_free_block(void *bp);
 static void splice_free_block(void *bp);
+static void *probability_rand_fit(size_t asize);
+static void *best_fit(size_t asize);
 
 int mm_init(void)
 {
@@ -108,7 +111,7 @@ void *mm_malloc(size_t size)
     if (size <= DSIZE) asize = 2 * DSIZE;
     else asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
 
-    if ((bp = find_fit(asize)) != NULL) {
+    if ((bp = best_fit(asize)) != NULL) {
         place(bp, asize);
         return bp;
     }
@@ -270,6 +273,92 @@ static void *find_fit(size_t asize)
     return NULL; /* No fit found */
 }
 
+
+static void *rand_fit(size_t asize)
+{
+    char *rover;
+    int free_block_count = 0;
+
+    // 1단계: 가용 블록 개수 세기
+    for (rover = free_listp; rover != NULL; rover = GET_SUCC(rover)) {
+        if (GET_SIZE(HDRP(rover)) >= asize) {
+            free_block_count++;
+        }
+    }
+
+    // 할당 가능한 블록이 없으면 NULL 반환
+    if (free_block_count == 0) {
+        return NULL;
+    }
+
+    // 2단계: 0부터 free_block_count-1 사이 랜덤 인덱스 뽑기
+    int random_index = rand() % free_block_count;
+
+    // 3단계: 해당 인덱스 위치의 블록 찾아서 반환
+    int current_index = 0;
+    for (rover = free_listp; rover != NULL; rover = GET_SUCC(rover)) {
+        if (GET_SIZE(HDRP(rover)) >= asize) {
+            if (current_index == random_index) {
+                return rover;
+            }
+            current_index++;
+        }
+    }
+    return NULL;
+}
+
+
+static void *probability_rand_fit(size_t asize)
+{
+    char *rover;
+    char *best_fit = NULL;
+
+    for (rover = free_listp; rover != NULL; rover = GET_SUCC(rover)) {
+        size_t bsize = GET_SIZE(HDRP(rover));
+
+        if (bsize >= asize) {
+            int diff = bsize - asize;
+            int prob;
+
+            if (diff == 0) prob = 10;
+            else if (diff <= 32) prob = 7;
+            else if (diff <= 64) prob = 4;
+            else prob = 1;
+
+            if ((rand() % 10) < prob) {
+                return rover;
+            }
+
+
+            best_fit = rover;
+        }
+    }
+
+    return best_fit;
+}
+
+static void *best_fit(size_t asize)
+{
+    char *rover;
+    size_t csize = (size_t)-1;
+    char *best = NULL;
+    // 1단계: 가용 블록 개수 세기
+    for (rover = free_listp; rover != NULL; rover = GET_SUCC(rover)) {
+        size_t size = GET_SIZE(HDRP(rover));
+        if (size >= asize) {
+            if(csize>size){
+                csize = size;
+                best = rover;
+            }
+            
+        }
+        else if  (GET_SIZE(HDRP(rover)) == asize){
+            return rover;
+        }
+    }
+
+    return best;
+}
 
 /*
  * place - Place block of asize bytes at start of free block bp
